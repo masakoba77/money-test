@@ -1,103 +1,91 @@
 import pandas as pd
-from portfolio import Portfolio
-from indicator import add_indicators
-from strategy import MAStrategy
+from src.portfolio import Portfolio
+from src.indicator import add_indicators, assign_signals
+from src.strategy import MAStrategy
+from src.data_fetcher import fetch_data, generate_demo_data
 
 class Simulator:
-    """Backtesting simulator for stock trading strategies"""
+    def __init__(self, symbol, initial_cash=100000, commission_rate=0.001):
+        self.symbol = symbol
+        self.initial_cash = initial_cash
+        self.commission_rate = commission_rate
+        self.portfolio = None
+        self.data = None
+        self.results = None
 
-    def __init__(self, initial_capital=100000, commission=0.001):
-        self.initial_capital = initial_capital
-        self.commission = commission
-        self.portfolio = Portfolio(initial_capital, commission)
-        self.strategy = MAStrategy()
+    def run(self, start_date=None, end_date=None, use_demo=True):
+        if use_demo:
+            self.data = generate_demo_data(days=250, symbol=self.symbol)
+        else:
+            self.data = fetch_data(self.symbol, start_date, end_date)
 
-    def run(self, stocks_data):
-        """Run simulation on stock data
-        stocks_data: dict of {symbol: dataframe with OHLCV}
-        """
-        # Merge all stock data by date
-        all_data = {}
-        for symbol, df in stocks_data.items():
-            all_data[symbol] = add_indicators(df.copy())
+        if self.data is None or len(self.data) == 0:
+            return False
 
-        # Get all unique dates sorted
-        all_dates = set()
-        for symbol, df in all_data.items():
-            all_dates.update(df.index)
+        self.data = add_indicators(self.data)
+        self.data = assign_signals(self.data)
 
-        all_dates = sorted(list(all_dates))
+        self.portfolio = Portfolio(self.initial_cash, self.commission_rate)
 
-        # Simulate day by day
-        for date in all_dates:
-            current_prices = {}
-            signals = {}
+        for idx, row in self.data.iterrows():
+            date = row['date']
+            close_price = row['close']
+            signal = row.get('signal', 'HOLD')
 
-            # Collect current prices and signals for all symbols
-            for symbol, df in all_data.items():
-                if date in df.index:
-                    current_prices[symbol] = df.loc[date, 'close']
+            current_prices = {self.symbol: close_price}
 
-                    # Generate signals from indicator
-                    idx = df.index.get_loc(date)
+            if signal == 'GOLDEN_CROSS':
+                if self.symbol not in self.portfolio.positions:
+                    shares_to_buy = int(self.portfolio.cash / (close_price * 1.001) * 0.95)
+                    if shares_to_buy > 0:
+                        self.portfolio.buy(date, self.symbol, shares_to_buy, close_price)
 
-                    if idx > 0:
-                        prev_row = df.iloc[idx-1]
-                        curr_row = df.iloc[idx]
+            elif signal == 'DEATH_CROSS':
+                if self.symbol in self.portfolio.positions:
+                    shares_to_sell = self.portfolio.positions[self.symbol]['shares']
+                    self.portfolio.sell(date, self.symbol, shares_to_sell, close_price)
 
-                        # Check if we have valid indicator values
-                        if not pd.isna(curr_row['sma_short']) and not pd.isna(curr_row['sma_long']) and \
-                           not pd.isna(prev_row['sma_short']) and not pd.isna(prev_row['sma_long']):
+            self.portfolio.snapshot_equity(date, current_prices)
 
-                            # Golden cross: buy
-                            if prev_row['sma_short'] <= prev_row['sma_long'] and \
-                               curr_row['sma_short'] > curr_row['sma_long']:
-                                signals[symbol] = 1
-                            # Death cross: sell
-                            elif prev_row['sma_short'] >= prev_row['sma_long'] and \
-                                 curr_row['sma_short'] < curr_row['sma_long']:
-                                signals[symbol] = -1
-                            else:
-                                signals[symbol] = 0
-                        else:
-                            signals[symbol] = 0
-                    else:
-                        signals[symbol] = 0
-
-            # Execute trades based on signals
-            for symbol, signal in signals.items():
-                if symbol not in current_prices:
-                    continue
-
-                current_price = current_prices[symbol]
-                position = self.portfolio.positions.get(symbol, {})
-
-                if signal == 1:  # Buy signal
-                    # Only buy if we don't already hold this stock
-                    if position.get('shares', 0) == 0:
-                        # Allocate equal amount to each symbol
-                        shares_to_buy = int((self.portfolio.cash / len(all_data)) / current_price)
-                        if shares_to_buy > 0:
-                            self.portfolio.buy(symbol, shares_to_buy, current_price, date)
-
-                elif signal == -1:  # Sell signal
-                    # Sell all holdings of this stock
-                    if position.get('shares', 0) > 0:
-                        self.portfolio.sell(symbol, position['shares'], current_price, date)
-
-            # Record daily equity value
-            total_value = self.portfolio.get_total_value(current_prices)
-            self.portfolio.record_equity(date, total_value)
-
-        return self.portfolio
+        return True
 
     def get_results(self):
-        """Get simulation results"""
-        stats = self.portfolio.get_performance_stats()
+        if self.portfolio is None:
+            return None
 
-        return {
-            'statistics': stats,
-            'equity_curve': pd.DataFrame(self.portfolio.equity_history),
-            'trades': pd.DataFrame(self.portfolio.trade_history),
-            'portfolio': self.portfolio
+        equity_records = []
+        for snap in self.portfolio.equity_snapshots:
+            equity_records.append({
+                'date': snap['date'].isoformat() if hasattr(snap['date'], 'isoformat') else str(snap['date']),
+                'equity': round(snap['equity'], 2),
+                'cash': round(snap['cash'], 2)
+            })
+
+        trade_records = []
+        for trade in self.portfolio.trade_history:
+            trade_records.append({
+                'date': trade['date'].isoformat() if hasattr(trade['date'], 'isoformat') else str(trade['date']),
+                'symbol': trade['symbol'],
+                'action': trade['action'],
+                'shares': trade['shares'],
+                'price': round(trade['price'], 2),
+                'commission': round(trade['commission'], 2),
+                'total': round(trade['total'], 2)
+            })
+
+        stats = self.portfolio.calculate_performance_stats()
+
+        self.results = {
+            'symbol': self.symbol,
+            'initial_cash': self.initial_cash,
+            'final_equity': round(self.portfolio.get_total_value({self.symbol: self.data.iloc[-1]['close']}), 2),
+            'total_return': round(stats['total_return'] * 100, 2),
+            'sharpe_ratio': round(stats['sharpe_ratio'], 2),
+            'max_drawdown': round(stats['max_drawdown'] * 100, 2),
+            'win_rate': round(stats['win_rate'] * 100, 2),
+            'total_trades': stats['total_trades'],
+            'equity_records': equity_records,
+            'trade_records': trade_records
         }
+
+        return self.results

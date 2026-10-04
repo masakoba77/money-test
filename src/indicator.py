@@ -1,56 +1,64 @@
 import pandas as pd
 import numpy as np
 
-def calculate_sma(data, period):
-    """Calculate Simple Moving Average"""
-    close_col = 'close' if 'close' in data.columns else 'Close'
-    return data[close_col].rolling(window=period).mean()
+class PriceData:
+    def __init__(self, date, open_price, high, low, close, volume):
+        self.date = date
+        self.open = open_price
+        self.high = high
+        self.low = low
+        self.close = close
+        self.volume = volume
+        self.sma20 = None
+        self.sma50 = None
+        self.rsi = None
+        self.signal = None
 
-def calculate_rsi(data, period=14):
-    """Calculate Relative Strength Index"""
-    close_col = 'close' if 'close' in data.columns else 'Close'
-    delta = data[close_col].diff()
+def calculate_sma(prices, period):
+    return pd.Series(prices).rolling(window=period).mean().values
+
+def calculate_rsi(prices, period=14):
+    series = pd.Series(prices)
+    delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
-    return rsi
+    return rsi.values
 
-def add_indicators(data, short_ma=20, long_ma=50):
-    """Add technical indicators to data"""
-    df = data.copy()
-    # Normalize column names to lowercase
-    df.columns = df.columns.str.lower()
-    df['sma_short'] = calculate_sma(df, short_ma)
-    df['sma_long'] = calculate_sma(df, long_ma)
-    df['rsi'] = calculate_rsi(df)
+def add_indicators(df):
+    if df is None or len(df) == 0:
+        return df
+
+    prices = df['close'].values
+    df['sma20'] = calculate_sma(prices, 20)
+    df['sma50'] = calculate_sma(prices, 50)
+    df['rsi'] = calculate_rsi(prices, 14)
     return df
 
-def get_crossover_signal(data):
-    """Generate buy/sell signals based on MA crossover
-    Returns: 1 for buy signal, -1 for sell signal, 0 for hold
-    """
-    signals = []
+def get_crossover_signal(sma20, sma50, prev_sma20, prev_sma50):
+    if sma20 is None or sma50 is None or prev_sma20 is None or prev_sma50 is None:
+        return 'HOLD'
+    if prev_sma20 <= prev_sma50 and sma20 > sma50:
+        return 'GOLDEN_CROSS'
+    if prev_sma20 >= prev_sma50 and sma20 < sma50:
+        return 'DEATH_CROSS'
+    return 'HOLD'
 
-    for i in range(1, len(data)):
-        prev_short = data.iloc[i-1]['sma_short']
-        prev_long = data.iloc[i-1]['sma_long']
-        curr_short = data.iloc[i]['sma_short']
-        curr_long = data.iloc[i]['sma_long']
+def assign_signals(df):
+    if df is None or len(df) < 2:
+        return df
 
-        # Skip if NaN
-        if pd.isna(prev_short) or pd.isna(prev_long) or pd.isna(curr_short) or pd.isna(curr_long):
-            signals.append(0)
-            continue
+    df['signal'] = 'HOLD'
+    for i in range(1, len(df)):
+        prev_row = df.iloc[i-1]
+        curr_row = df.iloc[i]
+        signal = get_crossover_signal(
+            curr_row.get('sma20'),
+            curr_row.get('sma50'),
+            prev_row.get('sma20'),
+            prev_row.get('sma50')
+        )
+        df.at[df.index[i], 'signal'] = signal
 
-        # Golden cross (buy signal)
-        if prev_short <= prev_long and curr_short > curr_long:
-            signals.append(1)
-        # Death cross (sell signal)
-        elif prev_short >= prev_long and curr_short < curr_long:
-            signals.append(-1)
-        else:
-            signals.append(0)
-
-    # Prepend 0 for first row
-    return [0] + signals
+    return df

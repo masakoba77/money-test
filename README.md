@@ -1,213 +1,190 @@
-# US Stock Auto Trading Simulator
+# Stock Trading Simulator
 
-Pythonで実装した米国株の自動売買シミュレーター。20日移動平均線×50日移動平均線のゴールデンクロス戦略を使用してバックテストを実行します。
+A Python-based backtesting engine for US stock trading using a moving average crossover strategy with a responsive web UI.
 
-## 機能
+## Features
 
-- ✅ 複数銘柄の同時シミュレーション（AAPL, MSFT等）
-- ✅ テクニカル指標計算（移動平均線、RSI等）
-- ✅ 移動平均線クロスオーバー戦略
-- ✅ バックテストエンジン（手数料・スリッページ計上）
-- ✅ ポートフォリオ管理と損益計算
-- ✅ パフォーマンス分析（シャープレシオ、ドローダウン等）
-- ✅ 結果の可視化（チャート、トレード履歴等）
-- ✅ **Webアプリ版（FastAPI）** - ブラウザで利用可能、iPhone対応
+- **Moving Average Crossover Strategy**: 20-day and 50-day simple moving average (SMA) crossover signals
+- **Comprehensive Backtesting**: Full portfolio simulation with realistic trading costs
+- **Performance Metrics**: Sharpe ratio, maximum drawdown, win rate, total return
+- **Interactive Web UI**: Real-time results visualization with Chart.js
+- **REST API**: FastAPI-based backend for easy integration
+- **Docker Support**: Multi-stage Docker build for production deployment
+- **CI/CD Pipeline**: GitHub Actions workflows for automated testing and deployment
 
-## プロジェクト構成
+## Quick Start
 
-```
-stock-simulator/
-├── src/
-│   ├── api.py                # FastAPI バックエンド
-│   ├── data_fetcher.py       # 株価データ取得
-│   ├── indicator.py          # テクニカル指標計算
-│   ├── strategy.py           # 売買戦略定義
-│   ├── simulator.py          # バックテストエンジン
-│   ├── portfolio.py          # ポートフォリオ管理
-│   ├── main.py               # CLIエントリーポイント
-│   └── __init__.py
-├── frontend/
-│   ├── index.html            # Webアプリページ
-│   ├── style.css             # スタイル（レスポンシブ対応）
-│   └── app.js                # JavaScriptロジック
-├── data/                      # 株価データベース
-├── output/                    # 結果出力
-├── run_server.sh             # サーバー起動スクリプト
-├── requirements.txt
-└── README.md
-```
+### Prerequisites
+- Python 3.11+
+- pip
+- Optional: Docker and Docker Compose
 
-## インストール
+### Local Setup
 
+1. Clone the repository:
 ```bash
-# 依存ライブラリをインストール
+git clone https://github.com/masakoba77/money-test-java.git
+cd money-test-java
+```
+
+2. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
 pip install -r requirements.txt
 ```
 
-## 使用方法
-
-### Webアプリ版（推奨 - iPhone対応）
-
+4. Run the server:
 ```bash
-# サーバー起動
-./run_server.sh
-
-# または
-cd src
-python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+bash run_server.sh
 ```
 
-ブラウザで `http://localhost:8000` を開く（iPhone、iPad、PCから利用可能）
+5. Open browser:
+```
+http://localhost:8000
+```
 
-### CLIバージョン
+### Docker Setup
 
+1. Build the image:
 ```bash
-cd src
-python main.py
+docker build -t stock-simulator .
 ```
 
-### シミュレーション設定の変更
-
-`src/main.py` の `main()` 関数内で以下を変更できます：
-
-```python
-symbols = ['AAPL', 'MSFT']          # 対象銘柄
-start_date = '2023-01-01'           # 開始日
-end_date = '2024-09-30'             # 終了日
-initial_capital = 100000            # 初期資金
+2. Run the container:
+```bash
+docker run -p 8000:8000 stock-simulator
 ```
 
-## Webアプリ版の使用方法
-
-### 起動手順
-
-1. **ターミナルでサーバーを起動**
-   ```bash
-   ./run_server.sh
-   ```
-
-2. **ブラウザを開く**
-   - PC: `http://localhost:8000`
-   - iPhone: `http://<your-computer-ip>:8000`
-   - iPad: `http://<your-computer-ip>:8000`
-
-3. **シミュレーション設定**
-   - **対象銘柄**: カンマ区切りで複数指定（例: AAPL,MSFT,GOOGL）
-   - **開始日**: 2023年1月1日など
-   - **終了日**: 2024年9月30日など
-   - **初期資金**: $100,000
-
-4. **「シミュレーション実行」ボタンをクリック**
-
-### 結果表示
-
-- **統計情報**: 初期資金、最終資産、総利益率、トレード数、勝率、シャープレシオ、最大ドローダウン
-- **資産推移グラフ**: 日ごとのポートフォリオ価値の推移
-- **トレード履歴**: すべての売買記録（日付、銘柄、売買、枚数、価格、損益）
-
-### モバイル対応
-
-Webアプリはレスポンシブデザインで実装されており、以下のデバイスで動作します：
-- iPhone、iPad（最新iOS）
-- Android タブレット
-- デスクトップ
-
-## 戦略説明
-
-### 移動平均線クロスオーバー戦略
-
-- **ゴールデンクロス（買いシグナル）** ：20日MAが50日MAを上回る
-- **デッドクロス（売りシグナル）** ：20日MAが50日MAを下回る
-
-```
-       ↑ 短期MA (20日)
-      /
-     /
-    / ← ゴールデンクロス = BUY
-   /
-  /-------- 長期MA (50日)
+Or use Docker Compose:
+```bash
+docker-compose up
 ```
 
-## 出力結果
+## API Endpoints
 
-### コンソール出力
-- 初期資金と最終資産
-- 総利益率（%）
-- トレード数
-- 勝率
-- シャープレシオ
-- 最大ドローダウン
-
-### ファイル出力
-
-#### `output/equity_curve.csv`
-日ごとの資産推移
-
-| date | equity |
-|------|--------|
-| 2023-01-03 | 100000.00 |
-| 2023-01-04 | 100500.50 |
-| ... | ... |
-
-#### `output/trades.csv`
-すべての売買履歴
-
-| date | symbol | action | shares | price | profit |
-|------|--------|--------|--------|-------|--------|
-| 2023-09-15 | AAPL | BUY | 302 | 165.44 | |
-| 2023-09-22 | AAPL | SELL | 302 | 157.34 | -2444.34 |
-
-#### `output/backtest_chart.png`
-資産推移と日次リターンのグラフ
-
-## 結果例
-
+### Health Check
 ```
-============================================================
-SIMULATION RESULTS
-============================================================
-Initial Capital:     $     100,000
-Final Value:         $      96,872
-Total Return:               -3.13%
-Total Trades:                  13
-Winning Trades:                 1
-Win Rate:                     7.7%
-Sharpe Ratio:               -0.22
-Max Drawdown:               -7.85%
-============================================================
+GET /api/health
 ```
 
-## パフォーマンス指標
+### Default Configuration
+```
+GET /api/default-config
+```
 
-- **Total Return** ：(最終資産 - 初期資金) / 初期資金 × 100
-- **Sharpe Ratio** ：（平均日次リターン / リターンの標準偏差） × √252
-- **Max Drawdown** ：ピークから谷までの最大下落率
-- **Win Rate** ：利益が出たトレードの割合
+### Run Simulation
+```
+POST /api/simulate
+Content-Type: application/json
 
-## 拡張可能性
+{
+  "symbol": "AAPL",
+  "initial_cash": 100000,
+  "commission_rate": 0.001,
+  "use_demo": true
+}
+```
 
-このシミュレーターは以下のように拡張できます：
+## Strategy Details
 
-- [ ] 複数戦略の実装（RSI、MACD等）
-- [ ] パラメータ最適化（Grid Search、Bayesian Optimization）
-- [ ] リスク管理（損切り、ポジションサイジング、ケリーの公式）
-- [ ] ウォークフォワード分析
-- [ ] 機械学習による予測モデル
-- [ ] リアルタイム取引機能（実ブローカー連携）
-- [ ] Docker化（クラウドデプロイ対応）
-- [ ] ユーザー認証＆保存機能
-- [ ] 複数言語対応
+### Moving Average Crossover
+- **Buy Signal (Golden Cross)**: When 20-day MA crosses above 50-day MA
+- **Sell Signal (Death Cross)**: When 20-day MA crosses below 50-day MA
+- **Position Sizing**: Uses 95% of available cash, reserved 5% as buffer
+- **Commission**: 0.1% per trade (configurable)
 
-## 注意事項
+### Performance Metrics
+- **Total Return**: (Final Equity - Initial Cash) / Initial Cash
+- **Sharpe Ratio**: Risk-adjusted return (annualized)
+- **Max Drawdown**: Maximum peak-to-trough decline
+- **Win Rate**: Percentage of profitable trades
+- **Total Trades**: Number of buy signals
 
-- これはシミュレーターです。過去のテスト結果が将来の利益を保証するものではありません
-- 実際の取引には多くの要因（流動性、スリッページ、経済ニュース等）が関与します
-- 投資は自己責任で行ってください
+## Project Structure
 
-## ライセンス
+```
+money-test-java/
+├── src/
+│   ├── api.py              # FastAPI backend
+│   ├── simulator.py        # Backtesting engine
+│   ├── portfolio.py        # Portfolio management
+│   ├── indicator.py        # Technical indicators
+│   ├── strategy.py         # Trading strategy
+│   ├── data_fetcher.py     # Data handling
+│   └── main.py             # CLI entry point
+├── frontend/
+│   ├── index.html          # Web UI
+│   ├── app.js              # Frontend logic
+│   └── style.css           # Styling
+├── .github/
+│   ├── workflows/          # GitHub Actions workflows
+│   └── ISSUE_TEMPLATE/     # Issue templates
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Docker build
+├── docker-compose.yml      # Docker Compose config
+├── run_server.sh           # Server startup script
+└── README.md               # This file
+```
+
+## Development
+
+### Running Tests
+```bash
+pip install pytest pytest-cov
+pytest src/tests/ -v --cov=src
+```
+
+### Code Quality
+```bash
+pip install flake8 pylint
+flake8 src/
+pylint src/
+```
+
+### Security Scanning
+```bash
+pip install bandit safety
+bandit -r src/
+safety check
+```
+
+## CI/CD
+
+### Workflows
+- **ci-cd.yml**: Build, test, and Docker image creation
+- **pr-checks.yml**: Pull request validation
+- **deploy.yml**: Release and deployment
+
+See [CI-CD-SETUP.md](CI-CD-SETUP.md) for detailed configuration.
+
+## Configuration
+
+### GitHub Secrets (Optional)
+- `DOCKER_REGISTRY_USERNAME`: Docker registry username
+- `DOCKER_REGISTRY_PASSWORD`: Docker registry password
+
+### Environment Variables
+- `PYTHONUNBUFFERED=1`: For better Docker logging
+
+## Documentation
+
+- [CI/CD Setup Guide](CI-CD-SETUP.md)
+- [GitHub Setup Guide](GITHUB-SETUP.md)
+
+## License
 
 MIT License
 
-## 作成者
+## Author
 
-Claude Haiku 4.5
+- Original Author: masakoba77
+- Recreated in Python with FastAPI
+
+## Support
+
+For issues and feature requests, please use [GitHub Issues](https://github.com/masakoba77/money-test-java/issues).

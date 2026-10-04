@@ -1,38 +1,26 @@
 class MAStrategy:
-    """Moving Average Crossover Strategy"""
+    def __init__(self, short_window=20, long_window=50):
+        self.short_window = short_window
+        self.long_window = long_window
 
-    def __init__(self, short_ma=20, long_ma=50):
-        self.short_ma = short_ma
-        self.long_ma = long_ma
+    def generate_signals(self, df):
+        if df is None or len(df) == 0:
+            return df
 
-    def generate_signals(self, indicator_data):
-        """Generate buy/sell signals from indicator data
-        Returns list of signals: 1 (buy), -1 (sell), 0 (hold)
-        """
-        signals = []
+        if 'sma20' not in df.columns or 'sma50' not in df.columns:
+            return df
 
-        for i in range(len(indicator_data)):
-            if i == 0:
-                signals.append(0)
-                continue
+        df['position'] = 0
+        for i in range(1, len(df)):
+            prev_sma20 = df.iloc[i-1].get('sma20')
+            prev_sma50 = df.iloc[i-1].get('sma50')
+            curr_sma20 = df.iloc[i].get('sma20')
+            curr_sma50 = df.iloc[i].get('sma50')
 
-            curr = indicator_data.iloc[i]
-            prev = indicator_data.iloc[i-1]
+            if prev_sma20 is not None and prev_sma50 is not None:
+                if prev_sma20 <= prev_sma50 and curr_sma20 > curr_sma50:
+                    df.at[df.index[i], 'position'] = 1
+                elif prev_sma20 >= prev_sma50 and curr_sma20 < curr_sma50:
+                    df.at[df.index[i], 'position'] = -1
 
-            # Check for NaN values
-            if any(pd.isna(v) for v in [curr['sma_short'], curr['sma_long'],
-                                         prev['sma_short'], prev['sma_long']]):
-                signals.append(0)
-                continue
-
-            # Golden cross (short MA crosses above long MA) - BUY
-            if prev['sma_short'] <= prev['sma_long'] and curr['sma_short'] > curr['sma_long']:
-                signals.append(1)
-            # Death cross (short MA crosses below long MA) - SELL
-            elif prev['sma_short'] >= prev['sma_long'] and curr['sma_short'] < curr['sma_long']:
-                signals.append(-1)
-            else:
-                signals.append(0)
-
-        return signals
-
+        return df

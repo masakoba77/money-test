@@ -1,127 +1,102 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>米国株自動売買シミュレーター</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Stock Simulator - Moving Average Crossover Strategy</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <h1>📊 米国株自動売買シミュレーター</h1>
-            <p class="subtitle">20日MA × 50日MA クロスオーバー戦略</p>
+        <header>
+            <h1>📈 Stock Trading Simulator</h1>
+            <p>Moving Average Crossover Strategy (20-day × 50-day MA)</p>
         </header>
 
-        <!-- Configuration Panel -->
-        <section class="config-panel">
-            <h2>シミュレーション設定</h2>
-
-            <div class="form-group">
-                <label for="symbols">対象銘柄</label>
-                <div class="symbols-input">
-                    <input type="text" id="symbols" placeholder="例: AAPL,MSFT" value="AAPL,MSFT">
-                    <span class="help-text">カンマ区切りで複数指定可能</span>
-                </div>
-            </div>
-
-            <div class="form-row">
+        <main>
+            <section class="config-section">
+                <h2>Configuration</h2>
                 <div class="form-group">
-                    <label for="startDate">開始日</label>
-                    <input type="date" id="startDate" value="2023-01-01">
+                    <label for="symbol">Stock Symbol:</label>
+                    <input type="text" id="symbol" value="AAPL" placeholder="e.g., AAPL">
                 </div>
                 <div class="form-group">
-                    <label for="endDate">終了日</label>
-                    <input type="date" id="endDate" value="2024-09-30">
+                    <label for="initial_cash">Initial Cash:</label>
+                    <input type="number" id="initial_cash" value="100000" min="1000" step="1000">
                 </div>
-            </div>
+                <div class="form-group">
+                    <label for="commission_rate">Commission Rate (%):</label>
+                    <input type="number" id="commission_rate" value="0.1" min="0" max="10" step="0.01">
+                </div>
+                <button id="simulate-btn" class="btn-primary">Run Simulation</button>
+                <div id="loading" class="loading hidden">Running simulation...</div>
+            </section>
 
-            <div class="form-group">
-                <label for="capital">初期資金 ($)</label>
-                <input type="number" id="capital" value="100000" min="1000">
-            </div>
+            <section class="results-section" id="results" style="display: none;">
+                <h2>Results</h2>
 
-            <button id="runBtn" class="btn btn-primary">シミュレーション実行</button>
-        </section>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Final Equity</h3>
+                        <p class="stat-value" id="final_equity">$0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Return</h3>
+                        <p class="stat-value" id="total_return">0%</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Sharpe Ratio</h3>
+                        <p class="stat-value" id="sharpe_ratio">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Max Drawdown</h3>
+                        <p class="stat-value" id="max_drawdown">0%</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Win Rate</h3>
+                        <p class="stat-value" id="win_rate">0%</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Trades</h3>
+                        <p class="stat-value" id="total_trades">0</p>
+                    </div>
+                </div>
 
-        <!-- Loading Indicator -->
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p>シミュレーション実行中...</p>
-        </div>
+                <div class="chart-container">
+                    <h3>Portfolio Equity Over Time</h3>
+                    <canvas id="equity-chart"></canvas>
+                </div>
 
-        <!-- Results Panel -->
-        <section id="results" class="results-panel hidden">
-            <h2>シミュレーション結果</h2>
-
-            <!-- Statistics -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">初期資金</div>
-                    <div class="stat-value" id="statInitial">$100,000</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">最終資産</div>
-                    <div class="stat-value" id="statFinal">$100,000</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">総利益率</div>
-                    <div class="stat-value" id="statReturn">0.00%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">トレード数</div>
-                    <div class="stat-value" id="statTrades">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">勝率</div>
-                    <div class="stat-value" id="statWinRate">0.0%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">シャープレシオ</div>
-                    <div class="stat-value" id="statSharpe">0.00</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">最大ドローダウン</div>
-                    <div class="stat-value" id="statDrawdown">0.00%</div>
-                </div>
-            </div>
-
-            <!-- Chart -->
-            <div class="chart-container">
-                <h3>資産推移</h3>
-                <canvas id="equityChart"></canvas>
-            </div>
-
-            <!-- Trade History -->
-            <div class="trades-container">
-                <h3>トレード履歴</h3>
-                <div class="trades-table-wrapper">
-                    <table id="tradesTable" class="trades-table">
+                <div class="trades-section">
+                    <h3>Trade History</h3>
+                    <table id="trades-table" class="trades-table">
                         <thead>
                             <tr>
-                                <th>日付</th>
-                                <th>銘柄</th>
-                                <th>売買</th>
-                                <th>枚数</th>
-                                <th>価格</th>
-                                <th>損益</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                                <th>Shares</th>
+                                <th>Price</th>
+                                <th>Commission</th>
+                                <th>Total</th>
                             </tr>
                         </thead>
-                        <tbody id="tradesBody">
+                        <tbody id="trades-body">
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Error Message -->
-        <div id="error" class="error hidden">
-            <p id="errorMessage"></p>
-        </div>
+            <section class="error-section" id="error" style="display: none;">
+                <div class="error-message" id="error-message"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Stock Trading Simulator. All rights reserved.</p>
+        </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

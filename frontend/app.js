@@ -1,176 +1,107 @@
-// API Base URL
-const API_BASE = window.location.origin === 'file://' ? 'http://localhost:8000' : window.location.origin;
+let chart = null;
 
-// DOM Elements
-const runBtn = document.getElementById('runBtn');
-const loadingDiv = document.getElementById('loading');
-const resultsDiv = document.getElementById('results');
-const errorDiv = document.getElementById('error');
-const errorMessage = document.getElementById('errorMessage');
-
-// Form inputs
-const symbolsInput = document.getElementById('symbols');
-const startDateInput = document.getElementById('startDate');
-const endDateInput = document.getElementById('endDate');
-const capitalInput = document.getElementById('capital');
-
-// Chart instance
-let equityChart = null;
-
-// Event listeners
-runBtn.addEventListener('click', runSimulation);
-
-// Load default config on page load
-window.addEventListener('load', async () => {
-    try {
-        const response = await fetch(`${API_BASE}/api/default-config`);
-        const config = await response.json();
-
-        symbolsInput.value = config.symbols.join(',');
-        startDateInput.value = config.start_date;
-        endDateInput.value = config.end_date;
-        capitalInput.value = config.initial_capital;
-    } catch (error) {
-        console.error('Failed to load default config:', error);
-    }
-});
+document.getElementById('simulate-btn').addEventListener('click', runSimulation);
 
 async function runSimulation() {
+    const symbol = document.getElementById('symbol').value.toUpperCase();
+    const initial_cash = parseInt(document.getElementById('initial_cash').value);
+    const commission_rate = parseFloat(document.getElementById('commission_rate').value) / 100;
+
+    if (!symbol || initial_cash <= 0) {
+        showError('Please enter valid values');
+        return;
+    }
+
+    showLoading(true);
+    hideError();
+    hideResults();
+
     try {
-        // Clear previous errors
-        hideError();
-
-        // Get form values
-        const symbols = symbolsInput.value
-            .split(',')
-            .map(s => s.trim().toUpperCase())
-            .filter(s => s.length > 0);
-
-        const startDate = startDateInput.value;
-        const endDate = endDateInput.value;
-        const initialCapital = parseFloat(capitalInput.value);
-
-        // Validation
-        if (symbols.length === 0) {
-            showError('銘柄を入力してください');
-            return;
-        }
-
-        if (!startDate || !endDate) {
-            showError('開始日と終了日を入力してください');
-            return;
-        }
-
-        if (initialCapital <= 0) {
-            showError('初期資金は0より大きい値を入力してください');
-            return;
-        }
-
-        // Show loading
-        showLoading();
-        runBtn.disabled = true;
-
-        // Call API
-        const response = await fetch(`${API_BASE}/api/simulate`, {
+        const response = await fetch('/api/simulate', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                symbols,
-                start_date: startDate,
-                end_date: endDate,
-                initial_capital: initialCapital
+                symbol: symbol,
+                initial_cash: initial_cash,
+                commission_rate: commission_rate,
+                use_demo: true
             })
         });
 
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'シミュレーション失敗');
+            throw new Error(error.detail || 'Simulation failed');
         }
 
-        const data = await response.json();
-
-        // Display results
-        displayResults(data, initialCapital);
-
+        const results = await response.json();
+        displayResults(results);
     } catch (error) {
         showError(error.message);
     } finally {
-        hideLoading();
-        runBtn.disabled = false;
+        showLoading(false);
     }
 }
 
-function displayResults(data, initialCapital) {
-    const stats = data.statistics;
+function displayResults(results) {
+    document.getElementById('final_equity').textContent = `$${results.final_equity.toLocaleString()}`;
+    document.getElementById('total_return').textContent = `${results.total_return}%`;
+    document.getElementById('sharpe_ratio').textContent = results.sharpe_ratio;
+    document.getElementById('max_drawdown').textContent = `${results.max_drawdown}%`;
+    document.getElementById('win_rate').textContent = `${results.win_rate}%`;
+    document.getElementById('total_trades').textContent = results.total_trades;
 
-    // Update statistics
-    document.getElementById('statInitial').textContent = formatCurrency(initialCapital);
-    document.getElementById('statFinal').textContent = formatCurrency(stats.final_value);
+    displayTradeHistory(results.trade_records);
+    displayEquityChart(results.equity_records);
 
-    const returnPct = stats.total_return_pct;
-    const returnEl = document.getElementById('statReturn');
-    returnEl.textContent = formatPercent(returnPct);
-    returnEl.parentElement.classList.toggle('negative', returnPct < 0);
-    returnEl.parentElement.classList.toggle('positive', returnPct > 0);
-
-    document.getElementById('statTrades').textContent = stats.num_trades;
-
-    const winRate = stats.num_trades > 0
-        ? (stats.winning_trades / stats.num_trades * 100)
-        : 0;
-    document.getElementById('statWinRate').textContent = formatPercent(winRate, 1);
-
-    const sharpeEl = document.getElementById('statSharpe');
-    sharpeEl.textContent = stats.sharpe_ratio.toFixed(2);
-    sharpeEl.parentElement.classList.toggle('positive', stats.sharpe_ratio > 0);
-    sharpeEl.parentElement.classList.toggle('negative', stats.sharpe_ratio < 0);
-
-    const drawdownEl = document.getElementById('statDrawdown');
-    drawdownEl.textContent = formatPercent(stats.max_drawdown_pct, 2);
-    drawdownEl.parentElement.classList.add('negative');
-
-    // Draw chart
-    drawEquityChart(data.equity_curve);
-
-    // Fill trade table
-    fillTradesTable(data.trades);
-
-    // Show results
-    resultsDiv.classList.remove('hidden');
-    resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    showResults();
 }
 
-function drawEquityChart(equityCurve) {
-    const ctx = document.getElementById('equityChart').getContext('2d');
+function displayTradeHistory(trades) {
+    const tbody = document.getElementById('trades-body');
+    tbody.innerHTML = '';
 
-    const dates = equityCurve.map(d => formatDate(d.date));
-    const values = equityCurve.map(d => d.equity);
+    trades.forEach(trade => {
+        const row = document.createElement('tr');
+        row.classList.add(trade.action === 'BUY' ? 'buy' : 'sell');
+        row.innerHTML = `
+            <td>${new Date(trade.date).toLocaleDateString()}</td>
+            <td>${trade.action}</td>
+            <td>${trade.shares}</td>
+            <td>$${trade.price.toFixed(2)}</td>
+            <td>$${trade.commission.toFixed(2)}</td>
+            <td>$${trade.total.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
 
-    // Destroy previous chart
-    if (equityChart) {
-        equityChart.destroy();
+function displayEquityChart(equityRecords) {
+    const ctx = document.getElementById('equity-chart').getContext('2d');
+
+    const dates = equityRecords.map(e => new Date(e.date).toLocaleDateString());
+    const equities = equityRecords.map(e => e.equity);
+
+    if (chart) {
+        chart.destroy();
     }
 
-    const initialValue = values[0];
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
-
-    equityChart = new Chart(ctx, {
+    chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: dates,
             datasets: [{
-                label: 'Portfolio Value',
-                data: values,
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                borderWidth: 2,
+                label: 'Portfolio Equity',
+                data: equities,
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                tension: 0.4,
                 fill: true,
-                tension: 0.1,
-                pointRadius: 0,
-                pointHoverRadius: 6,
+                pointRadius: 2,
+                pointBackgroundColor: '#2196F3',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
             }]
         },
         options: {
@@ -178,31 +109,21 @@ function drawEquityChart(equityCurve) {
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    display: false,
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    callbacks: {
-                        label: function(context) {
-                            return formatCurrency(context.parsed.y);
+                    display: true,
+                    labels: {
+                        color: '#333',
+                        font: {
+                            size: 12
                         }
                     }
                 }
             },
             scales: {
-                x: {
-                    display: true,
-                    ticks: {
-                        maxTicksLimit: 10,
-                    }
-                },
                 y: {
-                    display: true,
+                    beginAtZero: false,
                     ticks: {
                         callback: function(value) {
-                            return formatCurrency(value);
+                            return '$' + value.toLocaleString();
                         }
                     }
                 }
@@ -211,72 +132,34 @@ function drawEquityChart(equityCurve) {
     });
 }
 
-function fillTradesTable(trades) {
-    const tbody = document.getElementById('tradesBody');
-    tbody.innerHTML = '';
-
-    if (trades.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-light);">トレード記録なし</td></tr>';
-        return;
-    }
-
-    trades.forEach(trade => {
-        const row = document.createElement('tr');
-
-        const actionClass = trade.action === 'BUY' ? 'buy' : 'sell';
-        const profitValue = trade.profit || 0;
-        const profitClass = profitValue >= 0 ? 'profit' : 'loss';
-
-        row.innerHTML = `
-            <td>${formatDate(trade.date)}</td>
-            <td>${trade.symbol}</td>
-            <td class="${actionClass}">${trade.action}</td>
-            <td>${trade.shares}</td>
-            <td>$${trade.price.toFixed(2)}</td>
-            <td class="${profitClass}">${profitValue ? formatCurrency(profitValue) : '-'}</td>
-        `;
-
-        tbody.appendChild(row);
-    });
+function showResults() {
+    document.getElementById('results').style.display = 'block';
 }
 
-function showLoading() {
-    loadingDiv.classList.remove('hidden');
+function hideResults() {
+    document.getElementById('results').style.display = 'none';
 }
 
-function hideLoading() {
-    loadingDiv.classList.add('hidden');
+function showLoading(show) {
+    document.getElementById('loading').classList.toggle('hidden', !show);
 }
 
 function showError(message) {
-    errorMessage.textContent = message;
-    errorDiv.classList.remove('hidden');
-    errorDiv.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error-message').textContent = message;
 }
 
 function hideError() {
-    errorDiv.classList.add('hidden');
+    document.getElementById('error').style.display = 'none';
 }
 
-// Utility functions
-function formatCurrency(value) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-}
-
-function formatPercent(value, decimals = 2) {
-    return (value >= 0 ? '+' : '') + value.toFixed(decimals) + '%';
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
-}
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch('/api/health');
+        if (!response.ok) {
+            showError('Failed to connect to API');
+        }
+    } catch (error) {
+        showError('Failed to connect to API: ' + error.message);
+    }
+});
