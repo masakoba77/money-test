@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>米国株自動売買シミュレーター</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📊 米国株自動売買シミュレーター</h1>
+            <p class="subtitle">20日MA × 50日MA クロスオーバー戦略</p>
+        </header>
+
+        <!-- Configuration Panel -->
+        <section class="config-panel">
+            <h2>シミュレーション設定</h2>
+
+            <div class="form-group">
+                <label for="symbols">対象銘柄</label>
+                <div class="symbols-input">
+                    <input type="text" id="symbols" placeholder="例: AAPL,MSFT" value="AAPL,MSFT">
+                    <span class="help-text">カンマ区切りで複数指定可能</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="startDate">開始日</label>
+                    <input type="date" id="startDate" value="2023-01-01">
+                </div>
+                <div class="form-group">
+                    <label for="endDate">終了日</label>
+                    <input type="date" id="endDate" value="2024-09-30">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="capital">初期資金 ($)</label>
+                <input type="number" id="capital" value="100000" min="1000">
+            </div>
+
+            <button id="runBtn" class="btn btn-primary">シミュレーション実行</button>
+        </section>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>シミュレーション実行中...</p>
+        </div>
+
+        <!-- Results Panel -->
+        <section id="results" class="results-panel hidden">
+            <h2>シミュレーション結果</h2>
+
+            <!-- Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">初期資金</div>
+                    <div class="stat-value" id="statInitial">$100,000</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最終資産</div>
+                    <div class="stat-value" id="statFinal">$100,000</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総利益率</div>
+                    <div class="stat-value" id="statReturn">0.00%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">トレード数</div>
+                    <div class="stat-value" id="statTrades">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">勝率</div>
+                    <div class="stat-value" id="statWinRate">0.0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">シャープレシオ</div>
+                    <div class="stat-value" id="statSharpe">0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最大ドローダウン</div>
+                    <div class="stat-value" id="statDrawdown">0.00%</div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="chart-container">
+                <h3>資産推移</h3>
+                <canvas id="equityChart"></canvas>
+            </div>
+
+            <!-- Trade History -->
+            <div class="trades-container">
+                <h3>トレード履歴</h3>
+                <div class="trades-table-wrapper">
+                    <table id="tradesTable" class="trades-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>銘柄</th>
+                                <th>売買</th>
+                                <th>枚数</th>
+                                <th>価格</th>
+                                <th>損益</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Message -->
+        <div id="error" class="error hidden">
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

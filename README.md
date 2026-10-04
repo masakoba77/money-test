@@ -11,24 +11,28 @@ Pythonで実装した米国株の自動売買シミュレーター。20日移動
 - ✅ ポートフォリオ管理と損益計算
 - ✅ パフォーマンス分析（シャープレシオ、ドローダウン等）
 - ✅ 結果の可視化（チャート、トレード履歴等）
+- ✅ **Webアプリ版（FastAPI）** - ブラウザで利用可能、iPhone対応
 
 ## プロジェクト構成
 
 ```
 stock-simulator/
 ├── src/
+│   ├── api.py                # FastAPI バックエンド
 │   ├── data_fetcher.py       # 株価データ取得
 │   ├── indicator.py          # テクニカル指標計算
 │   ├── strategy.py           # 売買戦略定義
 │   ├── simulator.py          # バックテストエンジン
 │   ├── portfolio.py          # ポートフォリオ管理
-│   ├── main.py               # メインエントリーポイント
+│   ├── main.py               # CLIエントリーポイント
 │   └── __init__.py
+├── frontend/
+│   ├── index.html            # Webアプリページ
+│   ├── style.css             # スタイル（レスポンシブ対応）
+│   └── app.js                # JavaScriptロジック
 ├── data/                      # 株価データベース
 ├── output/                    # 結果出力
-│   ├── equity_curve.csv      # 資産推移
-│   ├── trades.csv            # トレード履歴
-│   └── backtest_chart.png    # 結果グラフ
+├── run_server.sh             # サーバー起動スクリプト
 ├── requirements.txt
 └── README.md
 ```
@@ -42,7 +46,20 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 基本的な実行
+### Webアプリ版（推奨 - iPhone対応）
+
+```bash
+# サーバー起動
+./run_server.sh
+
+# または
+cd src
+python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+ブラウザで `http://localhost:8000` を開く（iPhone、iPad、PCから利用可能）
+
+### CLIバージョン
 
 ```bash
 cd src
