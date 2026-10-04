@@ -99,10 +99,12 @@ async def simulate(request: SimulationRequest):
 
         # Prepare response
         equity_df = results['equity_curve'].copy()
-        equity_df['date'] = equity_df['date'].astype(str)
+        if 'date' in equity_df.columns:
+            equity_df['date'] = equity_df['date'].astype(str)
 
         trades_df = results['trades'].copy()
-        trades_df['date'] = trades_df['date'].astype(str)
+        if not trades_df.empty and 'date' in trades_df.columns:
+            trades_df['date'] = trades_df['date'].astype(str)
 
         return SimulationResponse(
             status="success",
